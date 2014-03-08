@@ -33,4 +33,11 @@ function version = eegplugin_erpstrap( fig, trystrs, catchstrs );
 if nargin < 1
 	help sample;
 	return;
-end;	
+end;
+
+% Add folder to path
+	if ~exist('eegplugin_erpstrap')
+		p = which('eegplugin_erpstrap');
+		p = p(1 : findstr(p, 'eegplugin_erpstrap') - 1);
+		addpath( p );
+	end;
