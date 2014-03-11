@@ -1,5 +1,5 @@
-% eegplugin_erpstrap() - EEGLAB plugin for computing statistical boostraps on 
-%							individual participant data
+% eegplugin_erpstrap() - EEGLAB plugin for computing statistical boostraps
+% on individual participant data
 %
 % Usage:
 %   >>  eegplugin_erpstrap( fig, trystrs, catchstrs );
@@ -31,7 +31,7 @@ function version = eegplugin_erpstrap( fig, trystrs, catchstrs );
 	version = 'erpstrap 0.1';
 
 if nargin < 1
-	help sample;
+	help erpstrap;
 	return;
 end;
 
