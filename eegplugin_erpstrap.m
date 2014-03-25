@@ -46,7 +46,7 @@ end;
 toolsmenu = findobj(fig, 'tag', 'tools');
 
 % menu callbacks
-comp3perm = [trystrs.check_epoch '[EEG LASTCOM] = erpstrap_p300_bootstrap( EEG );' catchstrs.new_and_hist];
+comp3perm = [trystrs.check_epoch '[EEG LASTCOM] = pop_erpstrap_p300_bootstrap( EEG );' catchstrs.new_and_hist];
 
 % create menus
 erpstraptools = uimenu( toolsmenu, 'Label', 'erpstrap Tools', 'separator', 'on', 'tag', 'erpstrap' );
