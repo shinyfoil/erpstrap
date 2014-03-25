@@ -1,4 +1,4 @@
-function [ stat allstat ] = erpstrap_compute_p300_bootstrap( data, iterations, p3wind, window )
+function [ stat allstat ] = erpstrap_compute_p300_bootstrap( data, iterations, p3wind, searchWindow, searchType )
 % erpstrap_compute_p300_bootstrap() - a function to compute the P300
 % bootstrap
 %
@@ -10,6 +10,9 @@ function [ stat allstat ] = erpstrap_compute_p300_bootstrap( data, iterations, p
 %   iterations  - [double] number of iterations to compute distribution
 %   p3wind      - [double] start and end point of P300 window
 %   window      - [double] width of P300 window
+%   searchType  - [string] 'point' - find most pos/neg point then build
+%                           window; 'slide' - slide window along wave to
+%                           find most pos/neg combination
 % 
 % Outputs:
 %   stat        - [double] number of iterations where the critical
@@ -47,16 +50,15 @@ if isempty(data)
 end;
 
 %% Getting ready to rock
-baseline = ceil(abs(data.xmin) * data.srate);
+baselinePts = ceil(abs(data.xmin) * data.srate);
 nTrials = data.eventLengths(1);
-p3pts = ceil(p3wind * data.srate) + baseline;
-widthpts = ceil(window * data.srate);
-halfwide = floor(widthpts / 2);
-slidepts = p3pts(2) - p3pts(1) - widthpts;
+p3WindowPts = ceil(p3wind * data.srate) + baselinePts;
+searchWindowWidth = ceil(searchWindow * data.srate);
+halfWidth = floor(searchWindowWidth / 2);
+p3SlideInterval = p3WindowPts(2) - p3WindowPts(1) - searchWindowWidth;
 
 stat = zeros(data.nbchan, 1);
 allstat = zeros(data.nbchan, iterations);
-
 
 %% It's COMPUTATION TIME!
 for i = 1:data.nbchan
@@ -74,35 +76,90 @@ for i = 1:data.nbchan
         otherRandMean = otherRandSum / nTrials;
         
         %% Pos peak find crit
-        critPosPeak = ind2sub(size(critRandMean), find(critRandMean == max(critRandMean(p3pts(1):p3pts(2)))));
-        critPosPeakMean = sum(critRandMean((critPosPeak - halfwide):(critPosPeak + halfwide))) / widthpts;
+        if strcmp(searchType, 'point')
+            critPosPeak = ind2sub(size(critRandMean), find(critRandMean == max(critRandMean(p3WindowPts(1):p3WindowPts(2)))));
+            
+        elseif strcmp(searchType, 'slide')
+            searchTmp = zeros(1, p3SlideInterval);
+            slidePos = p3WindowPts(1) + halfWidth;
+            critPosPeak = slidePos;
+            
+            for k = 1:p3SlideInterval
+                searchTmp(k) = sum(critRandMean((slidePos - halfWidth):(slidePos + halfWidth))) / searchWindowWidth;
+                slidePos = slidePos + 1;
+            end;
+            critPosPeak = critPosPeak + find(searchTmp == max(searchTmp));
+        end;
+        
+        critPosPeakMean = sum(critRandMean((critPosPeak - halfWidth):(critPosPeak + halfWidth))) / searchWindowWidth;
         
         %% Neg peak find crit
-        critNegPeak = ind2sub(size(critRandMean), find(critRandMean == max(critRandMean(critPosPeak:data.pnts))));
+        if strcmp(searchType, 'point')
+            critNegPeak = ind2sub(size(critRandMean), find(critRandMean == max(critRandMean(critPosPeak:data.pnts))));
+
+            % Check to see if neg peak window will extend past end
+            if ((critNegPeak + halfWidth) > data.pnts)
+                critNegPeak = data.pnts - halfWidth;
+            end;       
         
-        % Check to see if neg peak window will extend past end
-        if ((critNegPeak + halfwide) > data.pnts)
-            critNegPeak = data.pnts - halfwide;
+        elseif strcmp(searchType, 'slide')
+            negSlideInterval = data.pnts - critPosPeak - searchWindowWidth;
+            searchTmp = zeros(1, negSlideInterval);
+            slidePos = critPosPeak + halfWidth;
+            critNegPeak = slidePos;
+            
+            for k = 1:negSlideInterval
+                searchTmp(k) = sum(critRandMean(slidePos - halfWidth:slidePos + halfWidth)) / searchWindowWidth;
+                slidePos = slidePos + 1;
+            end;
+            critNegPeak = critNegPeak + find(searchTmp == min(searchTmp));
         end;
-                
-        critNegPeakMean = sum(critRandMean((critNegPeak - halfwide):(critNegPeak + halfwide))) / widthpts;
+        
+        critNegPeakMean = sum(critRandMean((critNegPeak - halfWidth):(critNegPeak + halfWidth))) / searchWindowWidth;
         
         %% Crit difference
         critDiff = critPosPeakMean - critNegPeakMean;
         
         %% Pos peak find other
-        otherPosPeak = ind2sub(size(otherRandMean), find(otherRandMean == max(otherRandMean(p3pts(1):p3pts(2)))));
-        otherPosPeakMean = sum(otherRandMean((otherPosPeak - halfwide):(otherPosPeak + halfwide))) / widthpts;
+        if strcmp(searchType, 'point')
+            otherPosPeak = ind2sub(size(otherRandMean), find(otherRandMean == max(otherRandMean(p3WindowPts(1):p3WindowPts(2)))));
+            
+        elseif strcmp(searchType, 'slide')
+            searchTmp = zeros(1, p3SlideInterval);
+            slidePos = p3WindowPts(1) + halfWidth;
+            otherPosPeak = slidePos;
+            
+            for k = 1:p3SlideInterval
+                searchTmp(k) = sum(otherRandMean((slidePos - halfWidth):(slidePos + halfWidth))) / searchWindowWidth;
+                slidePos = slidePos + 1;
+            end;
+            otherPosPeak = otherPosPeak + find(searchTmp == max(searchTmp));
+        end;
+        otherPosPeakMean = sum(otherRandMean((otherPosPeak - halfWidth):(otherPosPeak + halfWidth))) / searchWindowWidth;
         
         %% Neg peak find other
-        otherNegPeak = otherPosPeak + ind2sub(size(otherRandMean), find(otherRandMean == max(otherRandMean(otherPosPeak:data.pnts))));
+        if strcmp(searchType, 'point')
+            otherNegPeak = otherPosPeak + ind2sub(size(otherRandMean), find(otherRandMean == max(otherRandMean(otherPosPeak:data.pnts))));
 
-        % Check to see if neg peak window will extend past end
-        if ((otherNegPeak + halfwide) > data.pnts)
-            otherNegPeak = data.pnts - halfwide;
-        end;
+            % Check to see if neg peak window will extend past end
+            if ((otherNegPeak + halfWidth) > data.pnts)
+                otherNegPeak = data.pnts - halfWidth;
+            end;
         
-        otherNegPeakMean = sum(otherRandMean((otherNegPeak - halfwide):(otherNegPeak + halfwide))) / widthpts;
+        elseif strcmp(searchType, 'slide')
+            negSlideInterval = data.pnts - otherPosPeak - searchWindowWidth;
+            searchTmp = zeros(1, negSlideInterval);
+            slidePos = otherPosPeak + halfWidth;
+            otherNegPeak = slidePos;
+            
+            for k = 1:negSlideInterval
+                searchTmp(k) = sum(otherRandMean(slidePos - halfWidth:slidePos + halfWidth)) / searchWindowWidth;
+                slidePos = slidePos + 1;
+            end;
+            otherNegPeak = otherNegPeak + find(searchTmp == min(searchTmp));
+        end;
+            
+        otherNegPeakMean = sum(otherRandMean((otherNegPeak - halfWidth):(otherNegPeak + halfWidth))) / searchWindowWidth;
         
         %% Other difference
         otherDiff = otherPosPeakMean - otherNegPeakMean;
