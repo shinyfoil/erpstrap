@@ -41,3 +41,15 @@ end;
 		p = p(1 : findstr(p, 'eegplugin_erpstrap') - 1);
 		addpath( p );
 	end;
+    
+% find import data menu
+toolsmenu = findobj(fig, 'tag', 'tools');
+
+% menu callbacks
+comp3perm = [trystrs.check_epoch '[EEG LASTCOM] = erpstrap_p300_bootstrap( EEG );' catchstrs.new_and_hist];
+
+% create menus
+erpstraptools = uimenu( toolsmenu, 'Label', 'erpstrap Tools', 'separator', 'on', 'tag', 'erpstrap' );
+uimenu( erpstraptools, 'Label', 'Calculate P300 bootstrap', 'CallBack', comp3perm, 'position', 1 );
+    
+    
